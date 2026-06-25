@@ -8,18 +8,29 @@ import gudhi as ghd
 from plane_filtrations import * 
 from display import * 
 
+os.chdir("images")
+
+
+
+
 pixels = np.zeros((5,5))
 ring = nth_ring(pixels, 2, 2, 1)
 for k,l in ring:
     pixels[k,l] = 1
 
-print(single_plane_0_dim_total_variation(pixels, [1,1]))
+retina_image = Image.open("nardini_retina.png").convert("L")
+binarized_retina_image = ski.morphology.skeletonize(np.array(retina_image) > 100) 
 
-plt.imshow(pixels, cmap='gray')
-plt.show()
-plt.clf() 
 
-results = compute_tv_for_display(pixels, 100)
+
+#create_sweeping_plane_gif(binarized_retina_image, [1,0], "left_to_right.gif")
+
+
+#plt.imshow(pixels, cmap='gray')
+#plt.show()
+#plt.clf() 
+
+results = compute_tv_for_display(binarized_retina_image, 100)
 compute_wedge_diagram(results)
 
 
