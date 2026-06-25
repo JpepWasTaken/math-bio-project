@@ -6,8 +6,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import gudhi as ghd 
 from gudhi import plot_persistence_diagram
-
-os.chdir(r"C:\Users\eudes\Documents\Purdue\Math Bio (Spring 2026)\HW3\images")
+import math 
+from display import *
 
 #checks if an index i,j lies within an array or outside of it 
 def out_of_border(array, i, j):
@@ -27,7 +27,7 @@ def nth_ring(array,i,j,n):
                 res.append((i+k, j+l))
     return res
 
-#Code that maps pixels on a grid to an integer one-to-one. Goes row by row, starting at the top.  
+#Code that maps pixels on a grid to an integer one-to-one. Goes column by column, starting at the top.  
 def pixel_to_integer(array, pixel):
     return pixel[1]*array.shape[0] + pixel[0]
 
@@ -60,6 +60,38 @@ def bl_tr(array, pixel):
 def br_tl(array, pixel):
     return abs(array.shape[0]-1-pixel[0]) + abs(array.shape[1]-1-pixel[1]) 
 
+# General helper functions 
+def square_norm(vec):
+    return (vec[0]**2 + vec[1]**2)
+
+def angle(vec):
+    return math.atan2(vec[0], vec[1])
+
+# gets filtration value for an arbitrary pixel + vector 
+# the filtration value is just the dot product with the vector, but need to be careful because the 
+# y-axis is upside-down in arrays
+def get_filtration_value(pixel, vec): 
+    py, px = pixel[0], pixel[1] 
+    return (px * vec[0] - py * vec[1])
+
+def get_all_filtrations(array, vec): 
+    ymax, xmax = array.shape[0], array.shape[1]
+    min_val = math.inf 
+    res = np.zeros((ymax, xmax))
+    for j in range(ymax):
+        for i in range(xmax):
+            if array[j,i] != 0: 
+                res[j,i] = get_filtration_value([j, i], vec)
+                if res[j,i] < min_val:
+                    # track the lowest filtration value to make all filtration values positive at the end 
+                    min_val = res[j,i]
+            else: 
+                res[j,i] = math.inf 
+    print(min_val)
+    res = res - min_val * np.ones((ymax, xmax))
+    return res 
+
+
 methods_vect = [top, bot, left, right, tl_br, tr_bl, bl_tr, br_tl]
 
 #Checks if 2 pixels are Moore neighbours (i.e. if one is on the 8-pixel ring around the other)
@@ -69,25 +101,25 @@ def are_moore_neighbours(k, l, m, n):
 #Builds the simplex tree object from a binary array then adds simplices to it, using filtration values obtained by 
 #applying the "method" function. method is intended to be one of the 8 functions above, corresponding to sweeping 
 #planes from the top, bottom, right, left, and the 4 diagonals. 
-def insert_simplices(st, array, method):
+def insert_simplices(st, array, vec):
     for i in range(array.shape[0]):
         for j in range(array.shape[1]):
             if array[i,j] == True: 
                 #insert 0 simplices first
-                st.insert([pixel_to_integer(array, [i,j])], filtration = method(array, [i,j]))
+                st.insert([pixel_to_integer(array, [i,j])], filtration = get_filtration_value([i,j], vec))
                 ring = nth_ring(array, i, j, 1)
                 #insert 2 simplices next
                 for (k,l) in ring: 
                     if array[k,l] == True: 
                         st.insert([pixel_to_integer(array, [i,j]), pixel_to_integer(array, [k,l])], 
-                                  filtration = max(method(array, [i,j]), method(array, [k,l])))
+                                  filtration = max(get_filtration_value([i,j], vec), get_filtration_value([k,l], vec)))
                         for (m,n) in ring: 
                             if array[m,n] == True:
                                 if are_moore_neighbours(k,l,m,n): 
                                     st.insert([pixel_to_integer(array, [i,j]), 
                                                pixel_to_integer(array, [k,l]), pixel_to_integer(array, [m,n])], 
-                                               filtration = max(method(array, [i,j]), method(array, [k,l]), 
-                                                                method(array, [m,n])))
+                                               filtration = max(get_filtration_value([i,j], vec), get_filtration_value([k,l], vec), 
+                                                                get_filtration_value([m,n], vec)))
     st.make_filtration_non_decreasing()
 
 
@@ -104,6 +136,39 @@ def total_var(h0_counts):
     for i in range(len(h0_counts)-1):
         res += abs(h0_counts[i] - h0_counts[i+1])
     return res
+
+
+def single_plane_0_dim_total_variation(array, vec):
+    st = ghd.SimplexTree()
+    insert_simplices(st, array, vec)
+    st.compute_persistence()
+    filtration_values = [filtration for simplex, filtration in st.get_filtration()]
+    filtration_values.sort() 
+    # isolate the birth, pair pairs of 0-dimensional simplices 
+    h0_gens = [(birth,death) for dim, (birth,death) in st.persistence() if dim == 0] 
+    counts = [count_h0_gens(r, h0_gens) for r in filtration_values]
+    var = total_var(counts)
+    st.clear() 
+    return var 
+
+
+def get_vectors(num_vectors):
+    res = []
+    step = 180/(num_vectors-1)
+    for i in range(num_vectors):
+        angle_deg = i * step 
+        angle_rad = np.deg2rad(angle_deg)
+        res.append([math.cos(angle_rad), math.sin(angle_rad), angle_deg])
+    return res
+
+
+def compute_tv_for_display(array, num_vectors):
+    res = [] # array of [TV in direction v, angle of v]
+    vectors_list = get_vectors(num_vectors)
+    for vec in vectors_list: 
+        res.append([single_plane_0_dim_total_variation(array, vec), vec[2]])
+    return res 
+
 
 
 #Computes the total variation. st is a freshly initialized simplextree object, array the binary picture
@@ -131,7 +196,6 @@ def betti_curve(pairs, dim, r_values):
     relevant = [(birth, death) for d, (birth, death) in pairs if d == dim]
     return [sum(1 for birth, death in relevant 
                 if birth <= r and (death > r or death == float('inf'))) for r in r_values]
-
 
 
 

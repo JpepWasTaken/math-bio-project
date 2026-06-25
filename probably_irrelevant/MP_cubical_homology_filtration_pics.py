@@ -8,7 +8,7 @@ from gudhi import CubicalComplex
 from gudhi import plot_persistence_barcode
 from PIL import Image, ImageDraw, ImageFont
 
-os.chdir(r"C:\Users\eudes\Documents\Purdue\Math Bio (Spring 2026)\HW3\images")
+# os.chdir(r"C:\Users\eudes\Documents\Purdue\Math Bio (Spring 2026)\HW3\images")
 
 
 neuron_img = Image.open("mouse_neuron_1_alt.jpg").convert("L")
