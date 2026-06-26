@@ -4,7 +4,7 @@ import random as rd
 from math import pi
 from PIL import Image, ImageDraw, ImageFont
 import plane_filtrations
-import os 
+import os
 
 # idea: take as input an array vec = [[value, angle], [value2, angle2], [value3, angle3]]
 # and display it as a half-circle. angles are expected to be in degrees
@@ -54,16 +54,17 @@ def compute_wedge_diagram(vec):
 # INPUT
 # array: a binary np array
 # vec: the vector perpendicular to the sweeping plane
-# name: the name the file will have 
+# name: the name the file will have
+
 
 def create_sweeping_plane_gif(array, vec, name):
     frames = []
-    filtration_matrix, min_param, max_param = plane_filtrations.get_all_filtrations(array, vec)
+    filtration_matrix, min_param, max_param = plane_filtrations.get_all_filtrations(
+        array, vec
+    )
     for param in range(int(min_param), int(max_param) + 1, 5):
-        curr_image = (filtration_matrix <= param)
-        curr_frame = Image.fromarray(
-            ((curr_image) * 255).astype(np.uint8), mode="L"
-        )
+        curr_image = filtration_matrix <= param
+        curr_frame = Image.fromarray(((curr_image) * 255).astype(np.uint8), mode="L")
         frames.append(curr_frame)
     frames[0].save(
         name,
@@ -72,8 +73,6 @@ def create_sweeping_plane_gif(array, vec, name):
         duration=20,  # milliseconds per frame
         loop=0,  # 0 = loop forever
     )
-
-
 
 
 # step = 180 / 100
